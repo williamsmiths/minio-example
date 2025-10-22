@@ -1,0 +1,14 @@
+{
+  "url": "https://doc.hoclientuc.vn/api/v1/service-account-credentials",
+  "accessKey": "ygh4gXwM8xFbTOQFfpnB",
+  "secretKey": "4vEAi11Syl8bDyu2nXhSMyVWILofwEeEmsnBNaX8",
+  "api": "s3v4",
+  "path": "auto",
+  "endpoint": "media.hoclientuc.vn",
+  "port": 443,
+  "useSSL": true,
+  "region": "us-east-1",
+  "bucket": "videos",
+  "permissions": "read-only",
+  "description": "Cấu hình MinIO để truy cập bucket videos private"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "minio-video-viewer",
+  "version": "1.0.1",
+  "description": "Xem và proxy media từ MinIO (server + viewer)",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "viewer": "node server.js"
+  },
+  "dependencies": {
+    "minio": "^7.1.3"
+  },
+  "keywords": ["minio", "video", "streaming", "bucket", "html", "viewer"],
+  "author": "",
+  "license": "MIT"
+}

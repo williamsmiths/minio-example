@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinIO Media Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.2);
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .media-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid #e9ecef;
+        }
+
+        .media-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+
+        .media-preview {
+            width: 100%;
+            height: 200px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-bottom: 15px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            color: #ccc;
+        }
+
+        .media-info h3 {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .media-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .media-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            margin-top: 15px;
+            transition: transform 0.3s ease;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #c33;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            width: 60px;
+            height: 60px;
+            font-size: 1.5em;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1);
+            background: #218838;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .empty-state i {
+            font-size: 4em;
+            margin-bottom: 20px;
+            color: #ddd;
+        }
+
+        @media (max-width: 768px) {
+            .media-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 MinIO Media Viewer</h1>
+            <p>Danh sách video và hình ảnh từ bucket videos</p>
+            <div class="stats">
+                <div class="stat-card">
+                    <span class="stat-number" id="totalFiles">-</span>
+                    <span class="stat-label">Tổng file</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="videoCount">-</span>
+                    <span class="stat-label">Video</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="imageCount">-</span>
+                    <span class="stat-label">Hình ảnh</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="loading" class="loading">
+                <h3>🔄 Đang tải dữ liệu...</h3>
+                <p>Vui lòng chờ trong giây lát</p>
+            </div>
+
+            <div id="error" class="error" style="display: none;">
+                <h3>❌ Lỗi tải dữ liệu</h3>
+                <p id="errorMessage"></p>
+            </div>
+
+            <div id="content" style="display: none;">
+                <div class="section">
+                    <h2 class="section-title">
+                        🎬 Video Files
+                        <span id="videoSectionCount"></span>
+                    </h2>
+                    <div id="videoGrid" class="media-grid"></div>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">
+                        🖼️ Image Files
+                        <span id="imageSectionCount"></span>
+                    </h2>
+                    <div id="imageGrid" class="media-grid"></div>
+                </div>
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <i>📭</i>
+                <h3>Không tìm thấy file media nào</h3>
+                <p>Bucket videos hiện tại đang trống</p>
+            </div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="loadMediaFiles()" title="Làm mới">
+        🔄
+    </button>
+
+    <script>
+        // Dữ liệu mẫu (sẽ được thay thế bằng dữ liệu thực từ API)
+        const sampleData = {
+            "timestamp": "2025-10-21T07:57:55.776Z",
+            "totalFiles": 2,
+            "videos": [
+                {
+                    "name": "About the Google AI Studio category - Google AI Studio - Build with Google AI - Google Chrome 2024-09-30 14-44-38.mp4",
+                    "size": 5373959,
+                    "lastModified": "2025-10-13T03:47:45.347Z",
+                    "etag": "0c2b727954881bb62377ca0bd9713358",
+                    "type": "video",
+                    "sizeFormatted": "5.13 MB"
+                }
+            ],
+            "images": [
+                {
+                    "name": "460cf754091efeacea7a154ba6bd4f51.jpg",
+                    "size": 21813,
+                    "lastModified": "2025-10-18T05:01:31.833Z",
+                    "etag": "748e7f7d12d16b0673d7a0be164a41e2",
+                    "type": "image",
+                    "sizeFormatted": "21.3 KB"
+                }
+            ]
+        };
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function getFileIcon(type) {
+            if (type === 'video') return '🎬';
+            if (type === 'image') return '🖼️';
+            return '📄';
+        }
+
+        function createMediaCard(file) {
+            // Sử dụng proxy URL thay vì URL trực tiếp
+            const proxyUrl = `/media/${encodeURIComponent(file.name)}`;
+            
+            return `
+                <div class="media-card">
+                    <div class="media-preview">
+                        ${file.type === 'video' ? 
+                            `<video controls style="width: 100%; height: 100%; object-fit: cover;">
+                                <source src="${proxyUrl}" type="video/mp4">
+                                Trình duyệt không hỗ trợ video
+                            </video>` :
+                            `<img src="${proxyUrl}" alt="${file.name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: 3em; color: #ccc;">🖼️</div>`
+                        }
+                    </div>
+                    <div class="media-info">
+                        <h3 title="${file.name}">${file.name.length > 50 ? file.name.substring(0, 50) + '...' : file.name}</h3>
+                        <div class="media-meta">
+                            <span>📊 ${file.sizeFormatted}</span>
+                            <span>📅 ${formatDate(file.lastModified)}</span>
+                            <span>🔗 <a href="${proxyUrl}" target="_blank" style="color: #667eea;">Mở trong tab mới</a></span>
+                        </div>
+                        <a href="${proxyUrl}" target="_blank" class="btn">Xem ${file.type === 'video' ? 'Video' : 'Hình ảnh'}</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayMediaFiles(data) {
+            // Cập nhật thống kê
+            document.getElementById('totalFiles').textContent = data.totalFiles;
+            document.getElementById('videoCount').textContent = data.videos.length;
+            document.getElementById('imageCount').textContent = data.images.length;
+
+            // Hiển thị video
+            const videoGrid = document.getElementById('videoGrid');
+            const videoSectionCount = document.getElementById('videoSectionCount');
+            
+            if (data.videos.length > 0) {
+                videoSectionCount.textContent = `(${data.videos.length})`;
+                videoGrid.innerHTML = data.videos.map(createMediaCard).join('');
+            } else {
+                videoSectionCount.textContent = '(0)';
+                videoGrid.innerHTML = '<div class="empty-state"><i>🎬</i><h3>Không có video nào</h3></div>';
+            }
+
+            // Hiển thị hình ảnh
+            const imageGrid = document.getElementById('imageGrid');
+            const imageSectionCount = document.getElementById('imageSectionCount');
+            
+            if (data.images.length > 0) {
+                imageSectionCount.textContent = `(${data.images.length})`;
+                imageGrid.innerHTML = data.images.map(createMediaCard).join('');
+            } else {
+                imageSectionCount.textContent = '(0)';
+                imageGrid.innerHTML = '<div class="empty-state"><i>🖼️</i><h3>Không có hình ảnh nào</h3></div>';
+            }
+
+            // Hiển thị nội dung
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        function showEmptyState() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+        }
+
+        async function loadMediaFiles() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('error').style.display = 'none';
+                document.getElementById('content').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'none';
+
+                // Luôn gọi API để lấy dữ liệu mới từ MinIO (với cache-busting)
+                const response = await fetch(`/api/media?t=${Date.now()}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.totalFiles > 0) {
+                        displayMediaFiles(data);
+                    } else {
+                        showEmptyState();
+                    }
+                } else {
+                    throw new Error('API trả về lỗi: ' + response.status);
+                }
+
+            } catch (error) {
+                console.error('Lỗi:', error);
+                showError('Không thể tải dữ liệu từ MinIO. Vui lòng kiểm tra kết nối và thử lại.');
+            }
+        }
+
+        // Tự động tải dữ liệu khi trang load
+        document.addEventListener('DOMContentLoaded', loadMediaFiles);
+    </script>
+</body>
+</html>
