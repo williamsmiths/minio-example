@@ -231,11 +231,43 @@ if (require.main === module) {
     main();
 }
 
+// Hàm upload file lên MinIO
+async function uploadFileToMinIO(fileBuffer, fileName, bucketName) {
+    try {
+        console.log(`📤 Đang upload file: ${fileName} lên bucket: ${bucketName}`);
+        
+        // Upload file lên MinIO
+        const result = await minioClient.putObject(bucketName, fileName, fileBuffer);
+        
+        console.log(`✅ Upload thành công: ${fileName}`);
+        console.log(`📊 ETag: ${result.etag}`);
+        
+        return {
+            success: true,
+            fileName: fileName,
+            etag: result.etag,
+            bucket: bucketName
+        };
+        
+    } catch (error) {
+        console.error('❌ Lỗi upload file:', error);
+        throw error;
+    }
+}
+
+// Hàm kiểm tra file type có được hỗ trợ không
+function isSupportedFileType(filename) {
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+    return supportedVideoFormats.includes(ext) || supportedImageFormats.includes(ext);
+}
+
 module.exports = {
     minioClient,
     getFilesFromBucket,
     displayFiles,
     generateFileUrl,
     saveFilesToJson,
+    uploadFileToMinIO,
+    isSupportedFileType,
     getConfiguredBucket: () => (loadedConfig.bucket || 'videos')
 };

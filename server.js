@@ -1,9 +1,27 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { getFilesFromBucket, saveFilesToJson, minioClient, getConfiguredBucket } = require('./minio-video-viewer.js');
+const multer = require('multer');
+const { getFilesFromBucket, saveFilesToJson, minioClient, getConfiguredBucket, uploadFileToMinIO, isSupportedFileType } = require('./minio-video-viewer.js');
 
 const PORT = 3000;
+
+// Cấu hình multer cho upload
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 500 * 1024 * 1024 // Giới hạn 500MB
+    },
+    fileFilter: (req, file, cb) => {
+        // Kiểm tra file type có được hỗ trợ không
+        if (isSupportedFileType(file.originalname)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Chỉ hỗ trợ file video và hình ảnh'), false);
+        }
+    }
+});
 
 // MIME types
 const mimeTypes = {
@@ -131,6 +149,76 @@ const server = http.createServer(async (req, res) => {
         } catch (error) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+    
+    // API endpoint để upload file
+    if (url === '/api/upload') {
+        if (req.method !== 'POST') {
+            res.writeHead(405, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Method not allowed' }));
+            return;
+        }
+        
+        try {
+            // Sử dụng multer để xử lý upload
+            upload.single('file')(req, res, async (err) => {
+                if (err) {
+                    console.error('❌ Lỗi upload:', err.message);
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ 
+                        success: false, 
+                        error: err.message 
+                    }));
+                    return;
+                }
+                
+                if (!req.file) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ 
+                        success: false, 
+                        error: 'Không có file được chọn' 
+                    }));
+                    return;
+                }
+                
+                try {
+                    const bucket = getConfiguredBucket();
+                    const fileName = req.file.originalname;
+                    const fileBuffer = req.file.buffer;
+                    
+                    console.log(`📤 Upload file: ${fileName} (${req.file.size} bytes)`);
+                    
+                    // Upload file lên MinIO
+                    const result = await uploadFileToMinIO(fileBuffer, fileName, bucket);
+                    
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        success: true,
+                        message: 'Upload thành công',
+                        fileName: result.fileName,
+                        etag: result.etag,
+                        size: req.file.size
+                    }));
+                    
+                } catch (uploadError) {
+                    console.error('❌ Lỗi upload lên MinIO:', uploadError);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ 
+                        success: false, 
+                        error: 'Lỗi upload lên MinIO: ' + uploadError.message 
+                    }));
+                }
+            });
+            
+        } catch (error) {
+            console.error('❌ Lỗi xử lý upload:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+                success: false, 
+                error: error.message 
+            }));
         }
         return;
     }

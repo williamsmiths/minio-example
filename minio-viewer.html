@@ -76,6 +76,94 @@
             padding: 30px;
         }
 
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 2px dashed #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-section.dragover {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .upload-form {
+            text-align: center;
+        }
+
+        .upload-input {
+            display: none;
+        }
+
+        .upload-label {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .upload-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .upload-info {
+            margin-top: 15px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .upload-progress {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .upload-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .upload-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .upload-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
         .section {
             margin-bottom: 40px;
         }
@@ -246,6 +334,28 @@
         </div>
 
         <div class="content">
+            <!-- Upload Section -->
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-form">
+                    <h3 style="margin-bottom: 20px; color: #333;">📤 Upload File Media</h3>
+                    <input type="file" id="fileInput" class="upload-input" accept=".mp4,.avi,.mov,.mkv,.wmv,.flv,.webm,.m4v,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg,.tiff">
+                    <label for="fileInput" class="upload-label">
+                        🎬 Chọn file video hoặc hình ảnh
+                    </label>
+                    <div class="upload-info">
+                        Hỗ trợ: MP4, AVI, MOV, MKV, WMV, FLV, WebM, M4V, JPG, PNG, GIF, BMP, WebP, SVG, TIFF<br>
+                        Giới hạn: 500MB
+                    </div>
+                    <div class="upload-progress" id="uploadProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div id="progressText">Đang upload...</div>
+                    </div>
+                    <div class="upload-status" id="uploadStatus"></div>
+                </div>
+            </div>
+
             <div id="loading" class="loading">
                 <h3>🔄 Đang tải dữ liệu...</h3>
                 <p>Vui lòng chờ trong giây lát</p>
@@ -431,8 +541,129 @@
             }
         }
 
+        // Upload functionality
+        function setupUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadSection = document.getElementById('uploadSection');
+            const uploadProgress = document.getElementById('uploadProgress');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            // Drag and drop functionality
+            uploadSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadSection.classList.add('dragover');
+            });
+
+            uploadSection.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadSection.classList.remove('dragover');
+            });
+
+            uploadSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadSection.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    handleFileUpload(files[0]);
+                }
+            });
+
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+
+            async function handleFileUpload(file) {
+                // Kiểm tra kích thước file
+                if (file.size > 500 * 1024 * 1024) {
+                    showUploadStatus('error', 'File quá lớn! Giới hạn 500MB');
+                    return;
+                }
+
+                // Kiểm tra loại file
+                const allowedTypes = [
+                    'video/mp4', 'video/avi', 'video/quicktime', 'video/x-matroska',
+                    'video/x-ms-wmv', 'video/x-flv', 'video/webm', 'video/x-m4v',
+                    'image/jpeg', 'image/png', 'image/gif', 'image/bmp',
+                    'image/webp', 'image/svg+xml', 'image/tiff'
+                ];
+
+                if (!allowedTypes.includes(file.type)) {
+                    showUploadStatus('error', 'Loại file không được hỗ trợ!');
+                    return;
+                }
+
+                // Hiển thị progress
+                uploadProgress.style.display = 'block';
+                uploadStatus.style.display = 'none';
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Đang upload...';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    // Simulate progress
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += Math.random() * 15;
+                        if (progress > 90) progress = 90;
+                        progressFill.style.width = progress + '%';
+                    }, 200);
+
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    clearInterval(progressInterval);
+                    progressFill.style.width = '100%';
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showUploadStatus('success', `Upload thành công: ${result.fileName}`);
+                        // Tự động refresh danh sách file
+                        setTimeout(() => {
+                            loadMediaFiles();
+                        }, 1000);
+                    } else {
+                        showUploadStatus('error', result.error || 'Upload thất bại');
+                    }
+
+                } catch (error) {
+                    showUploadStatus('error', 'Lỗi kết nối: ' + error.message);
+                }
+
+                // Ẩn progress sau 3 giây
+                setTimeout(() => {
+                    uploadProgress.style.display = 'none';
+                }, 3000);
+            }
+
+            function showUploadStatus(type, message) {
+                uploadStatus.className = `upload-status ${type}`;
+                uploadStatus.textContent = message;
+                uploadStatus.style.display = 'block';
+                
+                // Ẩn status sau 5 giây
+                setTimeout(() => {
+                    uploadStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+
         // Tự động tải dữ liệu khi trang load
-        document.addEventListener('DOMContentLoaded', loadMediaFiles);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMediaFiles();
+            setupUpload();
+        });
     </script>
 </body>
 </html>
